@@ -1,0 +1,12 @@
+# DO NOT include azure-functions-worker in this file
+# The Python Worker is managed by Azure Functions platform
+# Manually managing azure-functions-worker may cause unexpected issues
+
+python-dotenv
+azure-functions
+twilio
+azure-ai-inference
+pinecone==5.1.0
+pinecone-client==5.0.1
+pinecone-plugin-inference==1.1.0rc0
+pinecone-plugin-interface==0.0.7
