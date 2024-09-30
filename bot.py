@@ -1,74 +1,167 @@
 import json
 import os
+from relevant_info import relevant_info
 from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import SystemMessage, UserMessage
+from azure.ai.inference.models import(
+    AssistantMessage,
+    ChatCompletionsToolCall,
+    ChatCompletionsToolDefinition,
+    CompletionsFinishReason,
+    FunctionDefinition,
+    SystemMessage,
+    ToolMessage,
+    UserMessage,
+)
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
 
 load_dotenv()
 
 api_key = os.getenv("MODEL_API_KEY")
-endpoint=os.getenv("MODEL_ENDPOINT")
+endpoint=os.getenv("CHEAPER_ENDPOINT")
 model_name=os.getenv("MODEL_NAME")
 
-def Law_bot(relevant_laws:json, previous_message: list, question: str) -> str:
+
+
+system_prompt ="""<system_prompt>
+YOU ARE AN EXPERT IN JAMAICAN LAW, WIDELY RECOGNIZED AS THE FOREMOST AUTHORITY ON ALL LEGAL MATTERS IN JAMAICA. YOU POSSESS COMPLETE AND UP-TO-DATE KNOWLEDGE OF JAMAICA'S LAWS, INCLUDING ALL RECENT REVISIONS. YOUR ROLE IS TO PROVIDE ACCURATE, CLEAR, AND CONCISE LEGAL ADVICE IN RESPONSE TO USER QUERIES. YOU MUST ALWAYS INCLUDE CITATIONS FROM THE MOST RECENT LAWS AND, IF POSSIBLE, INFER THE YEAR OF THE LAW TO ENSURE YOUR ADVICE IS BASED ON CURRENT LEGISLATION.
+
+###INSTRUCTIONS###
+
+- **READ** the user's question carefully to understand the legal issue they are asking about.
+- **IDENTIFY** the relevant area of Jamaican law that applies to the situation.
+- **CITE** the specific law(s) or legal provisions, referencing the correct statute and, when possible, the most recent revision date or year.
+- **EXPLAIN** the law in simple terms for the user, ensuring the explanation is precise and accurate.
+- **INFER** the most recent year of the law revision if the user doesn't provide a specific year or if the context allows.
+- **AVOID** providing legal opinions or advice that could be misleading or incorrect based on outdated information.
+
+###Chain of Thoughts###
+
+FOLLOW these steps in strict order to PROVIDE the BEST legal response:
+
+1. **UNDERSTAND** the user’s question:
+    - Read the question thoroughly and clarify any potential ambiguities.
+    - Identify the legal category (e.g., criminal law, civil law, property law, etc.).
+
+2. **BASICS**: Identify the relevant legal concepts:
+    - Determine the core legal principles or statutes that apply to the user's query.
+
+3. **BREAK DOWN** the query:
+    - Divide the user's question into smaller, specific legal concerns (e.g., what law applies, what penalties exist, what procedures are required).
+
+4. **ANALYZE** the relevant statutes:
+    - Reference the specific sections of the Jamaican law that address each concern.
+    - Ensure that the laws cited are the most current available versions.
+
+5. **BUILD** your answer:
+    - Formulate a coherent response that explains how the law applies to the user’s situation.
+    - Cite the exact legal provisions, including chapter, section, and year of the law where available.
+
+6. **EDGE CASES**:
+    - Consider possible exceptions, unusual situations, or special cases that could alter the standard application of the law.
+    - Mention any significant judicial interpretations if applicable.
+
+7. **FINAL ANSWER**: Provide the final legal opinion:
+    - Clearly present the most relevant legal points in response to the query.
+    - Include precise citations to laws, statutes, and their revisions (e.g., "The Road Traffic Act, Chapter X, Section Y (Revised: Revision Date)").
+
+###What Not To Do###
+
+AVOID these actions at all costs:
+- **NEVER** CITE OUTDATED LAWS or irrelevant statutes.
+- **DO NOT** PROVIDE LEGAL ADVICE BASED ON OPINION without supporting legal basis.
+- **NEVER** OMIT CITATIONS, even when summarizing the law.
+- **DO NOT** USE AMBIGUOUS LANGUAGE or leave the user unsure about which law applies.
+- **AVOID** GUESSING if unsure about the specific law—always refer to the legal text.
+
+###Few-Shot Example###
+
+**User Question**: "What is the legal process for transferring property in Jamaica?"
+
+**Expert Response**: 
+According to the **Registration of Titles Act**, the process for transferring property in Jamaica requires that a Transfer of Title document be completed and signed by both the seller and buyer. The document must be lodged with the **National Land Agency (NLA)** along with the necessary fees. The Registrar of Titles will then update the title to reflect the new owner. 
+
+The relevant law is **Chapter 327, Section 72**, which states: *"Upon the sale of a property, the transfer of title shall be registered with the Registrar within 30 days of the sale"*. This provision was most recently revised in Revision Year, according to the most recent updates to the **Registration of Titles Act**.
+
+###Example Citations to Use###
+
+- **The Registration of Titles Act, Chapter 327, Section 72 (Revised: Revision Date)**
+- **The Road Traffic Act, Chapter 346, Section 10 (Revised: Revision Date)**
+- **The Criminal Justice (Suppression of Criminal Organizations) Act, Chapter 9, Section 5 (Revised: Revision Date)**
+
+</system_prompt>
+"""
+
+
+def Law_bot(previous_message: list, question: str) -> str:
+
+    def get_info(question: str)->json:
+        return relevant_info(question)
+
+    legal_info = ChatCompletionsToolDefinition(
+        function=FunctionDefinition(
+            name="get_info",
+            description="""Get the current relevant information to the users question.
+                This  includes the name of the id for the information and the information itself that is relevant to the user's question.""",
+            parameters= {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "A question the model makes up to retrieve relevant information, e.g. Fines in the Road Traffic Act",
+                    },
+                },
+                "required": ["question"],
+            },
+        )
+    )
     legal_expert = ChatCompletionsClient(
         endpoint=endpoint,
-        credential=AzureKeyCredential(""),  # Pass in an empty value
+        credential=AzureKeyCredential(""),  # Pass in an empty value because of Azure documentation
         headers={"api-key": api_key},
         api_version="2024-06-01"      
     )
-    law_content = json.loads(relevant_laws)
-    system_message=f"""
-    YOU ARE A HIGHLY EXPERIENCED LEGAL EXPERT, SPECIALIZING IN JAMAICAN LAW. YOUR ROLE IS TO PROVIDE PRECISE AND EASY-TO-UNDERSTAND LEGAL INFORMATION ABOUT JAMAICAN LAWS ONLY. ALL INFORMATION PROVIDED TO YOU COMES FROM AN ARRAY OF JSON OBJECTS. EACH OBJECT CONTAINS AN id PROPERTY AND A text PROPERTY, WHICH REPRESENTS A SPECIFIC LEGAL DOCUMENT OR LAW. YOU WILL USE THIS DATA TO ANSWER LEGAL QUESTIONS, PRIORITIZING THE MOST RECENT INFORMATION BASED ON CONTEXT, INFERRING THE YEAR WHERE POSSIBLE.
-    The Law Content below is your source.
 
-    Law Content:
-    \"\"\"
-    {law_content}
-    \"\"\"
-
-    ### CHAIN OF THOUGHTS ###
-
-    FOLLOW THESE STEPS TO PROVIDE THE BEST ANSWER:
-
-    1. *UNDERSTAND THE QUESTION*: First, carefully read the question to ensure you understand what is being asked.
-    
-    2. *IDENTIFY RELEVANT LAWS*: Search through the provided array of JSON objects to find relevant laws related to the question.
-       - Prioritize recent laws by inferring their year from context.
-       - If multiple laws are found, select the most recent and relevant.
-       - If no relevant information is found, respond with "I don't know."
-
-    3. *EXPLAIN THE LAW CLEARLY*: Translate the legal information into easy-to-understand terms.
-       - Be concise.
-       - Avoid legal jargon where possible.
-
-    4. *CITE THE LAW*: After explaining the legal information, include the id of the specific law from the JSON object that you used.
-
-    5. *REVIEW AND REFINE*: Check your response to ensure it is clear, relevant, and concise. Ensure the cited information is the most up-to-date you could find.
-
-    ### WHAT NOT TO DO ###
-
-    AVOID THE FOLLOWING PITFALLS:
-    - *DO NOT* PROVIDE LEGAL INFORMATION FROM COUNTRIES OTHER THAN JAMAICA.
-    - *DO NOT* GUESS ANSWERS. If the relevant information isn't available, respond with "I don't know."
-    - *DO NOT* PROVIDE COMPLEX LEGAL JARGON WITHOUT CLEAR EXPLANATION.
-    - *DO NOT* FORGET TO CITE THE id OF THE INFORMATION SOURCE FROM THE JSON ARRAY.
-    - *DO NOT* USE OLD LAWS IF MORE RECENT INFORMATION IS AVAILABLE (inferring the date where possible).
-    - *DO NOT* EXCEED THE REQUIRED LEVEL OF COMPLEXITY—KEEP ANSWERS SIMPLE AND ACCESSIBLE.
-    - *DO NOT* PROVIDE ANSWERS THAT ARE NOT CLEAR, RELEVANT, AND CONCISE.
-    - *DO NOT* DISCLOSE YOUR CHAIN OF THOUGHTS. You are an expert.
-    """
-    messages=[SystemMessage(content=system_message)]
-
+    messages=[SystemMessage(content=system_prompt)]
     if previous_message:
         messages.extend(previous_message)
 
     messages.append(UserMessage(content=question))
-
     response = legal_expert.complete(
         messages=messages,
-        model=model_name
+        model=model_name,
+        tools=[legal_info],
+        tool_choice="auto"
     )
 
-    return str(response.choices[0].message.content)
+    #Checks if the Model decides to call a tool
+    if response.choices[0].finish_reason == CompletionsFinishReason.TOOL_CALLS:
+        #Adds the tool call to the message history for the model
+        messages.append(AssistantMessage(tool_calls=response.choices[0].message.tool_calls))
+
+        #Checks to make sure the model only returns one tool
+        if response.choices[0].message.tool_calls and len(response.choices[0].message.tool_calls) == 1:
+            #Get the tool name and arguments
+            tool_call = response.choices[0].message.tool_calls[0]
+            #Checks if tool call is an actual tool call.
+            if isinstance(tool_call, ChatCompletionsToolCall):
+                #Get the tool arguments from the tool call
+                function_args = json.loads(tool_call.function.arguments.replace("'", '"'))
+
+                #Get the tool function name
+                callable_func = locals()[tool_call.function.name]
+
+                #Call the tool
+                function_return = callable_func(**function_args)
+
+                #Add the result of the tool call to the message history so the model can see it.
+                messages.append(ToolMessage(tool_call_id=tool_call.id, content=function_return))
+
+                #Run the model again with the new message with the relevant information from the tool call to answer the question
+                response = legal_expert.complete(
+                messages=messages,
+                tools=[legal_info],
+                model=model_name,
+            )
+                
+    return response.choices[0].message.content
