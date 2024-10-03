@@ -78,24 +78,30 @@ async def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
         )
     
 
+def split_message(text: str):
+    limit = 1600
+    messages = []
+    new_line_indexes = find_new_lines_indexes(text)
+    start = 0
+    end, new_line_index = find_closest_less_or_equal(new_line_indexes, limit)
+    messages.append(text[start:end])
+    while (end != None and new_line_index != None and new_line_index < len(new_line_indexes) - 1):
+        start = end
+        end, new_line_index = find_closest_less_or_equal(new_line_indexes, limit + start)
+        messages.append(text[start:end])
 
+    return messages
+    
+def find_new_lines_indexes(text: str):
+    return [i for i, ltr in enumerate(text) if ltr == "\n"]
 
-def split_message(text: str, max_length=1600) -> list:
-    # Split the text by newlines first to work with individual chunks
-    lines = text.split('\n')
-    subsets = []
-    current_subset = ""
-
-    for line in lines:
-        # If adding the line exceeds the max_length, store the current subset
-        if len(current_subset) + len(line) + 1 > max_length:  # +1 for newline char
-            subsets.append(current_subset)
-            current_subset = "\n"+line   # Start a new subset
-        else:
-            # Otherwise, keep adding lines to the current subset
-            current_subset += "\n"+line 
-
-    # Don't forget to add the last subset
-    if current_subset:
-        subsets.append(current_subset)
-    return subsets
+def find_closest_less_or_equal(numbers, target):
+    # Filter the list to only include numbers less than or equal to the target
+    less_or_equal_numbers = [(num, idx) for idx, num in enumerate(numbers) if num <= target]
+    
+    # If the filtered list is not empty, return the closest number and its index
+    if less_or_equal_numbers:
+        closest_num, closest_idx = max(less_or_equal_numbers, key=lambda x: x[0])
+        return closest_num, closest_idx
+    else:
+        return None, None  # Return None for both if no such number exists
