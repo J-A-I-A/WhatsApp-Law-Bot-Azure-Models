@@ -4,7 +4,6 @@ import azure.functions as func
 import logging
 from urllib.parse import parse_qs
 import messages
-from relevant_info import relevant_info
 import bot
 from dotenv import load_dotenv
 from twilio.rest import Client
@@ -48,7 +47,7 @@ def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
     logging.info(f'Response has been returned from the bot:{response}.')
 
     if response:
-        if len(response)>1600:
+        if len(response)>=1600:
             logging.info('2 Messages will be sent to the user.')
             res_first = response[0:len(response)//2] 
             res_second = response[len(response)//2 if len(response)%2 == 0 else ((len(response)//2)+1):]
@@ -58,7 +57,7 @@ def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
                 to=data["From"]
             )
             logging.info(msg=msg1.body)
-            time.sleep(2)
+            time.sleep(5)
             msg2=sender.messages.create(
                 from_=data["To"],
                 body=res_second,

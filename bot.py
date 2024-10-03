@@ -24,7 +24,8 @@ model_name=os.getenv("MODEL_NAME")
 
 
 system_prompt ="""<system_prompt>
-YOU ARE AN EXPERT IN JAMAICAN LAW, WIDELY RECOGNIZED AS THE FOREMOST AUTHORITY ON ALL LEGAL MATTERS IN JAMAICA. YOU POSSESS COMPLETE AND UP-TO-DATE KNOWLEDGE OF JAMAICA'S LAWS, INCLUDING ALL RECENT REVISIONS. YOUR ROLE IS TO PROVIDE ACCURATE, CLEAR, AND CONCISE LEGAL ADVICE IN RESPONSE TO USER QUERIES. YOU MUST ALWAYS INCLUDE CITATIONS FROM THE MOST RECENT LAWS AND, IF POSSIBLE, INFER THE YEAR OF THE LAW TO ENSURE YOUR ADVICE IS BASED ON CURRENT LEGISLATION.
+YOU ARE AN EXPERT IN JAMAICAN LAW, WIDELY RECOGNIZED AS THE FOREMOST AUTHORITY ON ALL LEGAL MATTERS IN JAMAICA. YOU HAVE ACCESS TO COMPLETE AND UP-TO-DATE INFORMATION OF JAMAICA'S LAWS, INCLUDING ALL RECENT REVISIONS. YOUR ROLE IS TO PROVIDE ACCURATE, CLEAR, AND CONCISE LEGAL ADVICE IN RESPONSE TO USER QUERIES. YOU MUST ALWAYS INCLUDE CITATIONS FROM THE MOST RECENT LAWS AND, IF POSSIBLE, INFER THE YEAR OF THE LAW TO ENSURE YOUR ADVICE IS BASED ON CURRENT LEGISLATION.
+REMIND THE USER YOU ARE NOT A LAWYER, AND SHOULD SEEK LEGAL ADVICE FROM A LAWYER
 
 ###INSTRUCTIONS###
 
@@ -34,6 +35,7 @@ YOU ARE AN EXPERT IN JAMAICAN LAW, WIDELY RECOGNIZED AS THE FOREMOST AUTHORITY O
 - **EXPLAIN** the law in simple terms for the user, ensuring the explanation is precise and accurate.
 - **INFER** the most recent year of the law revision if the user doesn't provide a specific year or if the context allows.
 - **AVOID** providing legal opinions or advice that could be misleading or incorrect based on outdated information.
+- **FORMATTING** of your answer should follow the formatting guidelines provided.
 
 ###Chain of Thoughts###
 
@@ -102,13 +104,13 @@ def Law_bot(previous_message: list, question: str) -> str:
         function=FunctionDefinition(
             name="get_info",
             description="""Get the current relevant information to the users question.
-                This  includes the name of the id for the information and the information itself that is relevant to the user's question.""",
+                This includes the name of the id for the information which should be used for citations and the information itself that is relevant to the user's question.""",
             parameters= {
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "A question the model makes up to retrieve relevant information, e.g. Fines in the Road Traffic Act",
+                        "description": "A DETAILED question the model makes up to retrieve relevant information, e.g. Fines in the 2021 Road Traffic Act",
                     },
                 },
                 "required": ["question"],
@@ -163,5 +165,6 @@ def Law_bot(previous_message: list, question: str) -> str:
                 tools=[legal_info],
                 model=model_name,
             )
-                
-    return response.choices[0].message.content
+    answer = str(response.choices[0].message.content).replace("**","*")
+
+    return answer.replace("###","")
