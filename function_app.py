@@ -17,7 +17,7 @@ sender= Client(sid, token)
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 @app.route(route="Twilio_Webhook")
-def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
+async def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
     request = req.get_body().decode('utf-8')
     decoded = parse_qs(request)
