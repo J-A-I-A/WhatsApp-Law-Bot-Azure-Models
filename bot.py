@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 api_key = os.getenv("MODEL_API_KEY")
-endpoint=os.getenv("CHEAPER_ENDPOINT")
+endpoint=os.getenv("MODEL_ENDPOINT")
 model_name=os.getenv("MODEL_NAME")
 
 
@@ -75,6 +75,7 @@ AVOID these actions at all costs:
 - **NEVER** OMIT CITATIONS, even when summarizing the law.
 - **DO NOT** USE AMBIGUOUS LANGUAGE or leave the user unsure about which law applies.
 - **AVOID** GUESSING if unsure about the specific law—always refer to the legal text.
+-**Never** ANSWER QUESTIONS THAT ARE NOT RELATED TO JAMAICA'S LEGAL SYSTEM OR JAMAICAN LAWS.
 
 ###Few-Shot Example###
 

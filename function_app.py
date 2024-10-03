@@ -11,6 +11,8 @@ from twilio.rest import Client
 load_dotenv()
 sid = os.getenv("TWILIO_SID")
 token=os.getenv("TWILIO_TOKEN")
+messaging_service_sid=os.getenv("TWILIO_MESSAGING_SERVICE_SID")
+
 
 sender= Client(sid, token)
 
@@ -18,6 +20,7 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 @app.route(route="Twilio_Webhook")
 async def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
+    response=None
     logging.info('Python HTTP trigger function processed a request.')
     request = req.get_body().decode('utf-8')
     decoded = parse_qs(request)
@@ -46,34 +49,27 @@ async def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
     messages.add_messages(phone_number=phone_number,question=question,response=response)
     logging.info(f'Response has been returned from the bot:{response}.')
 
-    if response:
-        if len(response)>=1600:
-            logging.info('2 Messages will be sent to the user.')
-            res_first = response[0:len(response)//2] 
-            res_second = response[len(response)//2 if len(response)%2 == 0 else ((len(response)//2)+1):]
-            msg1=sender.messages.create(
+    recieved=False
+    if response!=None:
+        message_list=split_message(response)
+        # Sends the response to the user.
+        for m in message_list:
+            time.sleep(3)
+            status=sender.messages.create(
                 from_=data["To"],
-                body=res_first,
-                to=data["From"]
+                body=m,
+                to=data["From"],   
+                messaging_service_sid=messaging_service_sid
             )
-            logging.info(msg=msg1.body)
-            time.sleep(5)
-            msg2=sender.messages.create(
-                from_=data["To"],
-                body=res_second,
-                to=data["From"]
-            )
-            logging.info(msg=msg2.body)
-            return func.HttpResponse(status_code=200)
-        else:
-            msg=logging.info('1 Message will be sent to the user.')
-            sender.messages.create(
-            from_=data["To"],
-            body=response,
-            to=data["From"]
-            )
-            logging.info(msg=msg)
-            return func.HttpResponse(status_code=200)
+            message_sid=status.sid
+            logging.info(f'Message sent to the user: {m}.')
+            recieved=False
+            while recieved==False:
+                message_status= sender.messages(f"{message_sid}").fetch()
+                if message_status.status=="sent":
+                    recieved=True
+                    break
+        return func.HttpResponse(status_code=200)
     else:
         return func.HttpResponse(
              #This HTTP triggered function executed successfully. But no response for the Bot.
@@ -81,24 +77,25 @@ async def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
              status_code=200
         )
     
-def split_message(text: str):
-    limit = 1600
-    text_size = len(text)
-    if (text_size <= limit):
-        return [text]
-    else:
-        messages = []
-        end_of_text_index = text_size - 1
-        split_start_point = 0
-        split_end_point = text.find("\n", split_start_point)     
-        #TODO Consider text is one block without newlines and greater than limit
-        while(split_end_point < end_of_text_index):
-            split_text = text[split_start_point:split_end_point]
-            while(len(split_text) < limit and not (split_end_point == end_of_text_index)):
-                split_end_point = text.find("\n", split_end_point+1)
-                if (split_end_point == -1): 
-                    split_end_point = end_of_text_index
-                split_text = text[split_start_point:split_end_point]
-            messages.append(text[split_start_point:split_end_point])
-            split_start_point = split_end_point           
-        return messages
+
+
+
+def split_message(text: str, max_length=1600) -> list:
+    # Split the text by newlines first to work with individual chunks
+    lines = text.split('\n')
+    subsets = []
+    current_subset = ""
+
+    for line in lines:
+        # If adding the line exceeds the max_length, store the current subset
+        if len(current_subset) + len(line) + 1 > max_length:  # +1 for newline char
+            subsets.append(current_subset)
+            current_subset = "\n"+line   # Start a new subset
+        else:
+            # Otherwise, keep adding lines to the current subset
+            current_subset += "\n"+line 
+
+    # Don't forget to add the last subset
+    if current_subset:
+        subsets.append(current_subset)
+    return subsets
