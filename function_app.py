@@ -80,3 +80,25 @@ def Twilio_Webhook(req: func.HttpRequest) -> func.HttpResponse:
              body="Currently Offline Please Try Again Later",
              status_code=200
         )
+    
+def split_message(text: str):
+    limit = 1600
+    text_size = len(text)
+    if (text_size <= limit):
+        return [text]
+    else:
+        messages = []
+        end_of_text_index = text_size - 1
+        split_start_point = 0
+        split_end_point = text.find("\n", split_start_point)     
+        #TODO Consider text is one block without newlines and greater than limit
+        while(split_end_point < end_of_text_index):
+            split_text = text[split_start_point:split_end_point]
+            while(len(split_text) < limit and not (split_end_point == end_of_text_index)):
+                split_end_point = text.find("\n", split_end_point+1)
+                if (split_end_point == -1): 
+                    split_end_point = end_of_text_index
+                split_text = text[split_start_point:split_end_point]
+            messages.append(text[split_start_point:split_end_point])
+            split_start_point = split_end_point           
+        return messages
