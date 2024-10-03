@@ -96,7 +96,7 @@ The relevant law is **Chapter 327, Section 72**, which states: *"Upon the sale o
 """
 
 
-def Law_bot(previous_message: list, question: str) -> str:
+async def Law_bot(previous_message: list, question: str) -> str:
 
     def get_info(question: str)->json:
         return relevant_info(question)
