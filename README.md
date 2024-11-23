@@ -1,5 +1,3 @@
-Here's a sample `README.md` for the GitHub repository [WhatsApp-Law-Bot-Azure-Models](https://github.com/J-A-I-A/WhatsApp-Law-Bot-Azure-Models). You can modify or extend this to better suit the project's specific needs and context.
-
 ---
 
 # WhatsApp Law Bot (Azure Models)
